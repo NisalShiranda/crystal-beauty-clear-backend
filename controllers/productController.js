@@ -81,6 +81,7 @@ export function deleteProduct(req,res){
        res.status(500).json({
            message: "Product Not Deleted"
        })
+       
    })
 }
 
