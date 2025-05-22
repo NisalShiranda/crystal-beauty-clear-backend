@@ -55,6 +55,21 @@ export function getProducts(req,res){
     )
 }
 
+export async function getProductByID(req,res){
+    const productID = req.params.productID;
+    const product = await Product.findOne({productID: productID});
+    if(product == null){
+        res.status(404).json({
+            message: "Product Not Found"
+        })
+        return
+    }
+    res.json({
+        product : product
+    });
+}
+   
+
 export function deleteProduct(req,res){
     if(req.user == null){
         res.status(403).json({
