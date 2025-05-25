@@ -1,6 +1,7 @@
-import Order from '../Models/order.js'
+import Order from '../Models/order.js';
+import Product from '../Models/product.js';
 
-export function createOrder(req,res){
+export async function createOrder(req,res){
     if(req.user == null){
         res.status(403).json({
             message: "You Need to Login First"
@@ -9,6 +10,7 @@ export function createOrder(req,res){
     }
 
     const body = req.body;
+    
     const orderData = {
         orderID : "",
         email : req.user.email,
@@ -18,7 +20,8 @@ export function createOrder(req,res){
         billItems : [],
         total : 0
     }
-    Order.find().sort({date : -1}).limit(1).then((lastBills)=>{
+    
+    Order.find().sort({date : -1}).limit(1).then(async (lastBills) => {
         if(lastBills.length == 0){
             orderData.orderID = "ORD0001";
         }else{
@@ -30,15 +33,43 @@ export function createOrder(req,res){
             const newOrderNumberStr = newOrderNumberInt.toString().padStart(4,'0');//"0062"
             orderData.orderID = "ORD" + newOrderNumberStr;
         }
+        
+
+        for(let i=0; i<body.billItems.length; i++){
+
+            const product = await Product.findOne({productID : body.billItems[i].productID});
+            if(product == null){
+                res.status(404).json({
+                    message: "Product with ID " + body.billItems[i].productID + " Not Found"
+                })
+                return;
+            }
+            
+            orderData.billItems[i] = {
+                productID: product.productID,
+                productName: product.name,
+                image: product.images[0],
+                quantity: body.billItems[i].quantity,
+                price: product.price,
+            };
+            
+            orderData.total = orderData.total + (product.price * body.billItems[i].quantity);
+            
+           
+
+        }
 
       
         const order = new Order(orderData);
-        order.save().then(() => {
+        console.log(order);
+        order.save().then((res) => {
+            console.log(res);
             res.json({
                 message: "Order Created"
             })
         }).catch(() => {
             res.json({
+
                 message: "Order Not Created"
             })
         })
@@ -68,6 +99,7 @@ export function getOrders(req,res){
             email: req.user.email
         }).then((orders) => {
             res.json(orders);
+            console.log(orders);
         }).catch(() => {
             res.status(500).json({
                 message: "Orders Not Found"
