@@ -109,3 +109,63 @@ export function getOrders(req,res){
 
     
 }
+
+export async function updateOrder(req,res){
+    try{
+        if(req.user == null){
+            res.status(403).json({
+                message: "You Need to Login First"
+            })
+            return;
+        }
+        if(req.user.role != 'admin'){
+            res.status(403).json({
+                message: "You are not allowed to update orders"
+            })
+            return;
+        }
+    
+        const orderID = req.params.orderID;
+        const order = await Order.findOneAndUpdate({orderID: orderID},req.body);
+        res.json({
+            message: "Order Updated",
+            
+        });
+    }catch(err){
+        console.log(err);
+        res.status(500).json({
+            message: "Order Not Updated"
+        });
+    }
+    
+}
+
+export async function deleteOrder(req,res){
+    try{
+        if(req.user == null){
+            res.status(403).json({
+                message: "You Need to Login First"
+            })
+            return;
+        }
+        if(req.user.role != 'admin'){
+            res.status(403).json({
+                message: "You are not allowed to delete orders"
+            })
+            return;
+        }
+
+        const orderID = req.params.orderID;
+        const order = await Order.findOneAndDelete({orderID: orderID}).then(() => {
+            res.json({
+                message: "Order Deleted"
+            })
+        })
+    
+    }catch(err){
+        console.log(err);
+        res.status(500).json({
+            message: "Order Not Deleted"
+        });
+    }
+}
