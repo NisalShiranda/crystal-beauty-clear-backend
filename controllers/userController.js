@@ -3,7 +3,20 @@ import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
 import dotenv from 'dotenv';
 import axios from 'axios';
+import nodemailer from 'nodemailer';
+import { Otp } from '../Models/otp.js';
 dotenv.config();
+
+const transport = nodemailer.createTransport({
+    service: 'gmail',
+    host: 'smtp.gmail.com',
+    port: 587,
+    secure: false,
+    auth: {
+        user: "nisalshiranda001@gmail.com",
+        pass: "bubzizazqujohjjx"
+    },
+})
 
 export function saveUser(req,res) {
 
@@ -168,5 +181,78 @@ export function getCurrentUser(req,res){
     res.json({
         user: req.user
     })
+}
+
+export async function sendOTP(req, res) {
+    console.log(req.body);
+    const email = req.body.email;
+    const otp = Math.floor(100000 + Math.random() * 900000);
+
+    const message = {
+        from: "nisalshiranda001@gmail.com",
+        to: email,
+        subject: "Your OTP Code",
+        text: `Your OTP code is ${otp}. It is valid for 5 minutes.`
+    };
+
+    try {
+        await Otp.findOneAndUpdate(
+            { email: email },
+            { otp: otp, createdAt: new Date() },
+            { upsert: true, new: true }
+        );
+
+        transport.sendMail(message, (error, info) => {
+            if (error) {
+                console.error("Error sending email:", error);
+                return res.status(500).json({ message: "Failed to send OTP" });
+            } else {
+                console.log("Email sent:", info.response);
+                return res.json({ message: "OTP sent successfully", otp: otp });
+            }
+        });
+    } catch (error) {
+        console.error("Error saving OTP to DB:", error);
+        res.status(500).json({ message: "Database error" });
+    }
+}
+
+
+export function changePassword(req, res) {
+    const email = req.body.email;
+    const password = req.body.password;
+    const otp = req.body.otp;
+
+    try {
+        Otp.findOne({ email: email }).sort({ createdAt: -1 }).limit(1).then((otpRecord) => {
+            if (!otpRecord) {
+                return res.status(404).json({ message: "OTP not found" });
+            }
+
+            if (otpRecord.otp !== otp || (Date.now() - otpRecord.createdAt.getTime()) > 5 * 60 * 1000) {
+                return res.status(400).json({ message: "Invalid or expired OTP" });
+            }
+
+            const hashedPassword = bcrypt.hashSync(password, 10);
+
+            User.findOneAndUpdate({ email: email }, { password: hashedPassword }, { new: true })
+                .then((user) => {
+                    if (!user) {
+                        return res.status(404).json({ message: "User not found" });
+                    }
+                    res.json({ message: "Password changed successfully" });
+                })
+                .catch((err) => {
+                    console.error("Error updating password:", err);
+                    res.status(500).json({ message: "Failed to change password" });
+                });
+        }).catch((err) => {
+            console.error("Error finding OTP:", err);
+            res.status(500).json({ message: "Failed to find OTP" });
+        });
+    } catch (err) {
+        console.error("Error changing password:", err);
+        res.status(500).json({ message: "Failed to change password" });
+    }
 }
 
